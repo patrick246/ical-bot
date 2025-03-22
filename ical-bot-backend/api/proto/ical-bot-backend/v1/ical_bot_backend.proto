@@ -1,0 +1,254 @@
+syntax = "proto3";
+
+package ical_bot_backend.v1;
+
+// weak, otherwise gnostic imports broken imports for gen-go
+// weak import: proto definition only adds options, no additional messages.
+// buf:lint:ignore IMPORT_NO_WEAK
+import weak "gnostic/openapi/v3/annotations.proto"; // Will not import _ "" in the gen-go files
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
+import "google/protobuf/duration.proto";
+
+// Defines the import path that should be used to import the generated package,
+// and the package name.
+option go_package = "github.com/patrick246/ical-bot/ical-bot-backend/internal/pkg/pb;pb";
+// These annotations are used when generating the OpenAPI file.
+option (gnostic.openapi.v3.document) = {
+  info: {
+    title: "ical-bot-backend-api"
+    version: "1.0"
+    description: "Sending messages to messengers based on iCal files"
+  }
+  components: {
+    security_schemes: {
+      additional_properties: [
+        {
+          name: "BasicAuth"
+          value: {
+            security_scheme: {
+              type: "http"
+              scheme: "basic"
+            }
+          }
+        }
+      ]
+    }
+  }
+  servers: {
+    url: "http://localhost:8080"
+    description: "Host Server"
+  }
+  tags: {
+    name: "Calendars"
+    description: "iCal Calendars to sync"
+  }
+  tags: {
+    name: "Channels"
+    description: "Channels to notify"
+  }
+};
+
+service IcalBotService {
+  // Calendar
+  rpc GetCalendar(GetCalendarRequest) returns (Calendar) {
+    option (google.api.http) = {get: "/v1/calendars/{id}"};
+    option (gnostic.openapi.v3.operation) = {tags: "Calendars"};
+  }
+
+  rpc ListCalendars(ListCalendarsRequest) returns (ListCalendarsResponse) {
+    option (google.api.http) = {get: "/v1/calendars"};
+    option (gnostic.openapi.v3.operation) = {tags: "Calendars"};
+  }
+
+  rpc CreateCalendar(CreateCalendarRequest) returns (Calendar) {
+    option (google.api.http) = {post: "/v1/calendars"};
+    option (gnostic.openapi.v3.operation) = {tags: "Calendars"};
+  }
+
+  rpc UpdateCalendar(UpdateCalendarRequest) returns (Calendar) {
+    option (google.api.http) = {patch: "/v1/calendars/{calendar.id}"};
+    option (gnostic.openapi.v3.operation) = {tags: "Calendars"};
+  }
+
+  rpc DeleteCalendar(DeleteCalendarRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/v1/calendars/{id}"};
+    option (gnostic.openapi.v3.operation) = {tags: "Calendars"};
+  }
+
+  // Channels
+  rpc GetChannel(GetChannelRequest) returns (Channel) {
+    option (google.api.http) = {get: "/v1/channels/{id}"};
+  }
+
+  rpc ListChannels(ListChannelsRequest) returns (ListChannelsResponse) {
+    option (google.api.http) = {get: "/v1/channels"};
+  }
+
+  rpc CreateChannel(CreateChannelRequest) returns (Channel) {
+    option (google.api.http) = {post: "/v1/channels"};
+  }
+
+  rpc UpdateChannel(UpdateChannelRequest) returns (Channel) {
+    option (google.api.http) = {patch: "/v1/channels/{channel.id}"};
+  }
+
+  rpc DeleteChannel(DeleteChannelRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/v1/channels/{id}"};
+  }
+
+  // Calendar-Channels
+  rpc ListCalendarChannels(ListCalendarChannelsRequest) returns (ListCalendarChannelsResponse) {
+    option (google.api.http) = {get: "/v1/calendars/{calendar_id}/channels"};
+    option (gnostic.openapi.v3.operation) = {tags: "Calendars"};
+  }
+
+  rpc CreateCalendarChannel(CreateCalendarChannelRequest) returns (Channel) {
+    option (google.api.http) = {post: "/v1/calendars/{calendar_id}/channels"};
+    option (gnostic.openapi.v3.operation) = {tags: "Calendars"};
+  }
+
+  rpc DeleteCalendarChannel(DeleteCalendarChannelRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/v1/calendars/{calendar_id}/channels/{channel_id}"};
+    option (gnostic.openapi.v3.operation) = {tags: "Calendars"};
+  }
+
+  // Bot API
+  rpc StreamEventNotifications(stream EventNotificationAcknowledge) returns (stream EventNotification) {}
+}
+
+message CreateCalendarRequest {
+  Calendar calendar = 1 [json_name = "calendar"];
+}
+
+message GetCalendarRequest {
+  string id = 1;
+}
+
+message ListCalendarsRequest {
+  int32 page_size = 1 [json_name = "page_size"];
+  string page_token = 2 [json_name = "page_token"];
+
+  ListCalendarsFilter filter = 3 [json_name="filter"];
+}
+
+message ListCalendarsFilter {
+  google.protobuf.Timestamp last_sync_time_before = 3 [json_name="last_sync_time_before"];
+}
+
+message ListCalendarsResponse {
+  repeated Calendar calendars = 1;
+  string next_page_token = 2 [json_name = "next_page_token"];
+}
+
+message UpdateCalendarRequest {
+  Calendar calendar = 1;
+  google.protobuf.FieldMask field_mask = 2 [json_name = "field_mask"];
+}
+
+message DeleteCalendarRequest {
+  string id = 1;
+}
+
+message Calendar {
+  string id = 1 [json_name = "id"];
+  string name = 2 [json_name = "name"];
+  string ical_url = 3 [json_name = "ical_url"];
+  google.protobuf.Timestamp last_sync_time = 4 [json_name = "last_sync_time"];
+  repeated DefaultReminder default_reminders = 5 [json_name = "default_reminders"];
+  DefaultReminderMode default_reminder_mode = 6 [json_name = "default_reminder_mode"];
+}
+
+message DefaultReminder {
+  google.protobuf.Duration before = 1;
+}
+
+enum DefaultReminderMode {
+  DEFAULT_REMINDER_MODE_UNKNOWN = 0;
+  DEFAULT_REMINDER_MODE_REPLACE = 2;
+  DEFAULT_REMINDER_MODE_ADD = 3;
+}
+
+message GetChannelRequest {
+  string id = 1;
+}
+
+message ListChannelsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListChannelsResponse {
+  repeated Channel channels = 1;
+  string next_page_token = 2;
+}
+
+message CreateChannelRequest {
+  Channel channel = 1;
+}
+
+message UpdateChannelRequest {
+  Channel channel = 1;
+  google.protobuf.FieldMask field_mask = 2;
+}
+
+message DeleteChannelRequest {
+  string id = 1;
+}
+
+message Channel {
+  string id = 1;
+
+  oneof channel_type {
+    TelegramChat telegram = 2;
+    MatrixChannel matrix = 3;
+  }
+}
+
+message TelegramChat {
+  int64 id = 1;
+  string type = 2;
+  string name = 3;
+}
+
+message MatrixChannel {
+  string room_id = 1 [json_name = "room_id"];
+  string name = 2 [json_name = "name"];
+}
+
+message ListCalendarChannelsRequest {
+  string calendar_id = 1 [json_name = "calendar_id"];
+  int32 page_size = 2 [json_name = "page_size"];
+  string page_token = 3 [json_name = "page_token"];
+}
+
+message ListCalendarChannelsResponse {
+  repeated Channel channels = 1 [json_name = "channels"];
+  string next_page_token = 2 [json_name = "next_page_token"];
+}
+
+message CreateCalendarChannelRequest {
+  string calendar_id = 1 [json_name = "calendar_id"];
+  string channel_id = 2 [json_name = "channel_id"];
+}
+
+message DeleteCalendarChannelRequest {
+  string calendar_id = 1 [json_name = "calendar_id"];
+  string channel_id = 2 [json_name = "channel_id"];
+}
+
+message PageToken {
+  string last_id = 1 [json_name="last_id"];
+}
+
+message EventNotification {
+  string id = 1;
+}
+
+message EventNotificationAcknowledge {
+  string id = 1;
+}

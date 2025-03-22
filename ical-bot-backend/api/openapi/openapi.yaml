@@ -1,0 +1,557 @@
+# Generated with protoc-gen-openapi
+# https://github.com/google/gnostic/tree/master/cmd/protoc-gen-openapi
+
+openapi: 3.0.3
+info:
+    title: ical-bot-backend-api
+    description: Sending messages to messengers based on iCal files
+    version: "1.0"
+servers:
+    - url: http://localhost:8080
+      description: Host Server
+paths:
+    /v1/calendars:
+        get:
+            tags:
+                - IcalBotService
+                - Calendars
+            operationId: IcalBotService_ListCalendars
+            parameters:
+                - name: page_size
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+                - name: page_token
+                  in: query
+                  schema:
+                    type: string
+                - name: filter.last_sync_time_before
+                  in: query
+                  schema:
+                    type: string
+                    format: date-time
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListCalendarsResponse'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+        post:
+            tags:
+                - IcalBotService
+                - Calendars
+            operationId: IcalBotService_CreateCalendar
+            parameters:
+                - name: calendar.id
+                  in: query
+                  schema:
+                    type: string
+                - name: calendar.name
+                  in: query
+                  schema:
+                    type: string
+                - name: calendar.ical_url
+                  in: query
+                  schema:
+                    type: string
+                - name: calendar.last_sync_time
+                  in: query
+                  schema:
+                    type: string
+                    format: date-time
+                - name: calendar.default_reminder_mode
+                  in: query
+                  schema:
+                    type: integer
+                    format: enum
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Calendar'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /v1/calendars/{calendar.id}:
+        patch:
+            tags:
+                - IcalBotService
+                - Calendars
+            operationId: IcalBotService_UpdateCalendar
+            parameters:
+                - name: calendar.id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: calendar.id
+                  in: query
+                  schema:
+                    type: string
+                - name: calendar.name
+                  in: query
+                  schema:
+                    type: string
+                - name: calendar.ical_url
+                  in: query
+                  schema:
+                    type: string
+                - name: calendar.last_sync_time
+                  in: query
+                  schema:
+                    type: string
+                    format: date-time
+                - name: calendar.default_reminder_mode
+                  in: query
+                  schema:
+                    type: integer
+                    format: enum
+                - name: field_mask
+                  in: query
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Calendar'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /v1/calendars/{calendar_id}/channels:
+        get:
+            tags:
+                - IcalBotService
+                - Calendars
+            description: Calendar-Channels
+            operationId: IcalBotService_ListCalendarChannels
+            parameters:
+                - name: calendar_id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: page_size
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+                - name: page_token
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListCalendarChannelsResponse'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+        post:
+            tags:
+                - IcalBotService
+                - Calendars
+            operationId: IcalBotService_CreateCalendarChannel
+            parameters:
+                - name: calendar_id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: channel_id
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Channel'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /v1/calendars/{calendar_id}/channels/{channel_id}:
+        delete:
+            tags:
+                - IcalBotService
+                - Calendars
+            operationId: IcalBotService_DeleteCalendarChannel
+            parameters:
+                - name: calendar_id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: channel_id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /v1/calendars/{id}:
+        get:
+            tags:
+                - IcalBotService
+                - Calendars
+            description: Calendar
+            operationId: IcalBotService_GetCalendar
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Calendar'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+        delete:
+            tags:
+                - IcalBotService
+                - Calendars
+            operationId: IcalBotService_DeleteCalendar
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /v1/channels:
+        get:
+            tags:
+                - IcalBotService
+            operationId: IcalBotService_ListChannels
+            parameters:
+                - name: pageSize
+                  in: query
+                  schema:
+                    type: integer
+                    format: int32
+                - name: pageToken
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListChannelsResponse'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+        post:
+            tags:
+                - IcalBotService
+            operationId: IcalBotService_CreateChannel
+            parameters:
+                - name: channel.id
+                  in: query
+                  schema:
+                    type: string
+                - name: channel.telegram.id
+                  in: query
+                  schema:
+                    type: string
+                - name: channel.telegram.type
+                  in: query
+                  schema:
+                    type: string
+                - name: channel.telegram.name
+                  in: query
+                  schema:
+                    type: string
+                - name: channel.matrix.room_id
+                  in: query
+                  schema:
+                    type: string
+                - name: channel.matrix.name
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Channel'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /v1/channels/{channel.id}:
+        patch:
+            tags:
+                - IcalBotService
+            operationId: IcalBotService_UpdateChannel
+            parameters:
+                - name: channel.id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+                - name: channel.id
+                  in: query
+                  schema:
+                    type: string
+                - name: channel.telegram.id
+                  in: query
+                  schema:
+                    type: string
+                - name: channel.telegram.type
+                  in: query
+                  schema:
+                    type: string
+                - name: channel.telegram.name
+                  in: query
+                  schema:
+                    type: string
+                - name: channel.matrix.room_id
+                  in: query
+                  schema:
+                    type: string
+                - name: channel.matrix.name
+                  in: query
+                  schema:
+                    type: string
+                - name: fieldMask
+                  in: query
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Channel'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /v1/channels/{id}:
+        get:
+            tags:
+                - IcalBotService
+            description: Channels
+            operationId: IcalBotService_GetChannel
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Channel'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+        delete:
+            tags:
+                - IcalBotService
+            operationId: IcalBotService_DeleteChannel
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+components:
+    schemas:
+        Calendar:
+            type: object
+            properties:
+                id:
+                    type: string
+                name:
+                    type: string
+                ical_url:
+                    type: string
+                last_sync_time:
+                    type: string
+                    format: date-time
+                default_reminders:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/DefaultReminder'
+                default_reminder_mode:
+                    type: integer
+                    format: enum
+        Channel:
+            type: object
+            properties:
+                id:
+                    type: string
+                telegram:
+                    $ref: '#/components/schemas/TelegramChat'
+                matrix:
+                    $ref: '#/components/schemas/MatrixChannel'
+        DefaultReminder:
+            type: object
+            properties:
+                before:
+                    pattern: ^-?(?:0|[1-9][0-9]{0,11})(?:\.[0-9]{1,9})?s$
+                    type: string
+        GoogleProtobufAny:
+            type: object
+            properties:
+                '@type':
+                    type: string
+                    description: The type of the serialized message.
+            additionalProperties: true
+            description: Contains an arbitrary serialized message along with a @type that describes the type of the serialized message.
+        ListCalendarChannelsResponse:
+            type: object
+            properties:
+                channels:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Channel'
+                next_page_token:
+                    type: string
+        ListCalendarsResponse:
+            type: object
+            properties:
+                calendars:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Calendar'
+                next_page_token:
+                    type: string
+        ListChannelsResponse:
+            type: object
+            properties:
+                channels:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Channel'
+                nextPageToken:
+                    type: string
+        MatrixChannel:
+            type: object
+            properties:
+                room_id:
+                    type: string
+                name:
+                    type: string
+        Status:
+            type: object
+            properties:
+                code:
+                    type: integer
+                    description: The status code, which should be an enum value of [google.rpc.Code][google.rpc.Code].
+                    format: int32
+                message:
+                    type: string
+                    description: A developer-facing error message, which should be in English. Any user-facing error message should be localized and sent in the [google.rpc.Status.details][google.rpc.Status.details] field, or localized by the client.
+                details:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/GoogleProtobufAny'
+                    description: A list of messages that carry the error details.  There is a common set of message types for APIs to use.
+            description: 'The `Status` type defines a logical error model that is suitable for different programming environments, including REST APIs and RPC APIs. It is used by [gRPC](https://github.com/grpc). Each `Status` message contains three pieces of data: error code, error message, and error details. You can find out more about this error model and how to work with it in the [API Design Guide](https://cloud.google.com/apis/design/errors).'
+        TelegramChat:
+            type: object
+            properties:
+                id:
+                    type: string
+                type:
+                    type: string
+                name:
+                    type: string
+    securitySchemes:
+        BasicAuth:
+            type: http
+            scheme: basic
+tags:
+    - name: Calendars
+      description: iCal Calendars to sync
+    - name: Channels
+      description: Channels to notify
+    - name: IcalBotService

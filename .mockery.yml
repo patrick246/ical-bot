@@ -1,0 +1,5 @@
+with-expecter: true
+packages:
+  github.com/patrick246/ical-bot/ical-bot-backend/internal/service/events:
+    calendarRepository:
+    eventsRepository:
