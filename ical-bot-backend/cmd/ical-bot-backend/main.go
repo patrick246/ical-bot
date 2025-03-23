@@ -74,8 +74,12 @@ func run() error {
 			pb.RegisterIcalBotServiceServer(server, svc)
 			return pb.RegisterIcalBotServiceHandler(context.Background(), mux, conn)
 		},
-		Jobs: []server.Job{
-			events.NewIcalImport(eventRepo, calendarRepo, httpClient, logger),
+		Jobs: []server.JobSpec{
+			{
+				Name:     "ical_import",
+				Job:      events.NewIcalImport(eventRepo, calendarRepo, httpClient, logger),
+				Interval: 1 * time.Minute,
+			},
 		},
 	}
 

@@ -13,6 +13,7 @@ import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/duration.proto";
+import "google/rpc/status.proto";
 
 // Defines the import path that should be used to import the generated package,
 // and the package name.
@@ -161,9 +162,12 @@ message Calendar {
   google.protobuf.Timestamp last_sync_time = 4 [json_name = "last_sync_time"];
   repeated DefaultReminder default_reminders = 5 [json_name = "default_reminders"];
   DefaultReminderMode default_reminder_mode = 6 [json_name = "default_reminder_mode"];
+  bytes last_sync_hash = 7 [json_name="last_sync_hash"];
+  google.rpc.Status last_sync_error = 8 [json_name="last_import_error"];
 }
 
 message DefaultReminder {
+  string id = 2;
   google.protobuf.Duration before = 1;
 }
 
@@ -171,6 +175,7 @@ enum DefaultReminderMode {
   DEFAULT_REMINDER_MODE_UNKNOWN = 0;
   DEFAULT_REMINDER_MODE_REPLACE = 2;
   DEFAULT_REMINDER_MODE_ADD = 3;
+  DEFAULT_REMINDER_MODE_UNSET_ONLY = 4;
 }
 
 message GetChannelRequest {

@@ -10,6 +10,8 @@ import (
 
 	"github.com/emersion/go-ical"
 	"github.com/google/uuid"
+
+	pb "github.com/patrick246/ical-bot/ical-bot-backend/internal/pkg/api/pb/ical-bot-backend/v1"
 )
 
 type timerange struct {
@@ -34,6 +36,10 @@ func (t timemultirange) PostgresString() string {
 }
 
 type EventAlarm struct {
+	ID        string
+	EventID   string
+	AlarmTime time.Time
+	EventTime time.Time
 }
 
 type Repository struct {
@@ -80,7 +86,7 @@ func (i *Import) Close(err error) error {
 	return i.tx.Commit()
 }
 
-func (i *Import) CreateEvent(ctx context.Context, event *ical.Event) error {
+func (i *Import) CreateEvent(ctx context.Context, calendar *pb.Calendar, event *ical.Event) error {
 	eventID := uuid.New().String()
 
 	data, err := encodeEvent(eventID, event)
@@ -88,21 +94,31 @@ func (i *Import) CreateEvent(ctx context.Context, event *ical.Event) error {
 		return err
 	}
 
-	occurrences, err := nextOccurrences(event)
+	alarms, err := calculateNextAlarms(calendar, eventID, event)
 	if err != nil {
 		return err
 	}
 
-	if len(occurrences) == 0 {
+	if len(alarms) == 0 {
 		return nil
 	}
 
 	_, err = i.tx.ExecContext(ctx, `
-		insert into calendar_events (id, calendar_id, data) VALUES ($1, $2, $3);
+		insert into calendar_events (id, calendar_id, data) values ($1, $2, $3);
 	`, eventID, i.calendarID, data)
 
 	if err != nil {
 		return err
+	}
+
+	for _, alarm := range alarms {
+		_, err := i.tx.ExecContext(ctx, `
+			insert into calendar_event_alarms (event_id, alarm_time, event_time)
+			values ($1, $2, $3)
+		`, alarm.EventID, alarm.AlarmTime, alarm.EventTime)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -129,7 +145,7 @@ func encodeEvent(id string, event *ical.Event) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func nextOccurrences(event *ical.Event) (timemultirange, error) {
+func calculateNextAlarms(calendar *pb.Calendar, eventID string, event *ical.Event) ([]EventAlarm, error) {
 	eventStart, err := event.DateTimeStart(time.UTC)
 	if err != nil {
 		return nil, err
@@ -140,7 +156,27 @@ func nextOccurrences(event *ical.Event) (timemultirange, error) {
 		return nil, err
 	}
 
-	eventDuration := eventEnd.Sub(eventStart)
+	var alarms []time.Duration
+
+	switch calendar.DefaultReminderMode {
+	case pb.DefaultReminderMode_DEFAULT_REMINDER_MODE_UNSET_ONLY:
+		alarms = getAlarms(event)
+		if len(alarms) == 0 {
+			for _, defaultReminder := range calendar.DefaultReminders {
+				alarms = append(alarms, defaultReminder.Before.AsDuration())
+			}
+		}
+	case pb.DefaultReminderMode_DEFAULT_REMINDER_MODE_ADD:
+		alarms = getAlarms(event)
+
+		for _, defaultReminder := range calendar.DefaultReminders {
+			alarms = append(alarms, defaultReminder.Before.AsDuration())
+		}
+	case pb.DefaultReminderMode_DEFAULT_REMINDER_MODE_REPLACE:
+		for _, defaultReminder := range calendar.DefaultReminders {
+			alarms = append(alarms, defaultReminder.Before.AsDuration())
+		}
+	}
 
 	recurrenceSet, err := event.RecurrenceSet(time.UTC)
 	if err != nil {
@@ -152,14 +188,24 @@ func nextOccurrences(event *ical.Event) (timemultirange, error) {
 			return nil, nil
 		}
 
-		return timemultirange{
-			{eventStart, eventEnd},
-		}, nil
+		nextAlarms := make([]EventAlarm, 0, len(alarms))
+
+		for _, alarm := range alarms {
+			nextAlarms = append(nextAlarms, EventAlarm{
+				AlarmTime: eventStart.Add(-alarm),
+				EventTime: eventStart,
+				EventID:   eventID,
+				ID:        uuid.New().String(),
+			})
+		}
+
+		return nextAlarms, nil
 	}
 
-	occurrences := make(timemultirange, 0, 10)
+	nextAlarms := make([]EventAlarm, 0)
 	it := recurrenceSet.Iterator()
 
+	occurrenceCount := 0
 	for {
 		v, ok := it()
 		if !ok {
@@ -170,20 +216,25 @@ func nextOccurrences(event *ical.Event) (timemultirange, error) {
 			continue
 		}
 
-		occurrences = append(occurrences, timerange{
-			from: v,
-			to:   v.Add(eventDuration),
-		})
+		occurrenceCount++
+		for _, alarm := range alarms {
+			nextAlarms = append(nextAlarms, EventAlarm{
+				ID:        uuid.New().String(),
+				EventID:   eventID,
+				AlarmTime: v.Add(-alarm),
+				EventTime: v,
+			})
+		}
 
-		if len(occurrences) >= 10 {
+		if occurrenceCount >= 10 {
 			break
 		}
 	}
 
-	return occurrences, nil
+	return nextAlarms, nil
 }
 
-func getAlarms(event *ical.Event) []ical.Component {
+func getAlarms(event *ical.Event) []time.Duration {
 	alarms := make([]ical.Component, 0, len(event.Children))
 
 	for _, component := range event.Children {
@@ -192,5 +243,17 @@ func getAlarms(event *ical.Event) []ical.Component {
 		}
 	}
 
-	return alarms
+	alarmsBefore := make([]time.Duration, 0, len(alarms))
+
+	for _, alarm := range alarms {
+		alarmProp := alarm.Props.Get(ical.PropTrigger)
+		duration, err := alarmProp.Duration()
+		if err != nil {
+			continue
+		}
+
+		alarmsBefore = append(alarmsBefore, duration)
+	}
+
+	return alarmsBefore
 }
