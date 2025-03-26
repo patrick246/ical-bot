@@ -8,6 +8,7 @@ import (
 	"github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	icalbot "github.com/patrick246/ical-bot/ical-bot-backend/pkg/api/pb/ical-bot-backend/v1"
 )
@@ -35,7 +36,9 @@ func main() {
 
 	b.RegisterHandler(bot.HandlerTypeMessageText, "/hello", bot.MatchTypeExact, helloHandler)
 
-	grpcOpts := []grpc.DialOption{}
+	grpcOpts := []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	}
 
 	clientConnection, err := grpc.NewClient("", grpcOpts...)
 
@@ -46,8 +49,17 @@ func main() {
 	}
 	telegramClientBot := icalbot.NewIcalBotServiceClient(clientConnection)
 
-	stream, err := telegramClientBot.StreamEventNotifications(context.Background())
+	var protoReq icalbot.ListChannelsRequest
 
+	channelListResponse, err := telegramClientBot.ListChannels(context.Background(), &protoReq)
+
+	if err != nil {
+		println("could not fetch channel list!")
+		os.Exit(1)
+	}
+	channels := channelListResponse.Channels
+
+	stream, err := telegramClientBot.StreamEventNotifications(context.Background())
 	if err != nil {
 		println("%s telegram event stream notification could not be received: %s", error_message, err.Error())
 		defer clientConnection.Close()
@@ -58,7 +70,6 @@ func main() {
 	// grpc message waiter
 	go func() {
 		for {
-
 			notification, err := stream.Recv()
 			if err != nil {
 				println("%s notification could not be received: %s", error_message, err.Error())
@@ -79,14 +90,26 @@ func main() {
 			if message == nil {
 				println("%s message is nil", error_message)
 			}
+
+			counter := 0
+
+			for idx := channels[counter]; idx != nil; counter++ {
+				// todo check channeltype
+				telegramChannel := idx.GetTelegram()
+				if telegramChannel == nil {
+					continue
+				}
+				b.SendMessage(ctx,
+					&bot.SendMessageParams{
+						ChatID:    telegramChannel.Id,
+						Text:      message.String(),
+						ParseMode: models.ParseModeMarkdown,
+					})
+			}
+
 			println("%s received notification with id: %s", info_message, message.Id)
 		}
 	}()
-	//routine {
-	// <-wait
-	//}
-	// when to use this?
-	// stream.CloseSend()
 
 	b.Start(ctx)
 }
