@@ -72,6 +72,28 @@ paths:
                   schema:
                     type: integer
                     format: enum
+                - name: calendar.last_sync_hash
+                  in: query
+                  schema:
+                    type: string
+                    format: bytes
+                - name: calendar.last_import_error.code
+                  in: query
+                  description: |-
+                    The status code, which should be an enum value of
+                     [google.rpc.Code][google.rpc.Code].
+                  schema:
+                    type: integer
+                    format: int32
+                - name: calendar.last_import_error.message
+                  in: query
+                  description: |-
+                    A developer-facing error message, which should be in English. Any
+                     user-facing error message should be localized and sent in the
+                     [google.rpc.Status.details][google.rpc.Status.details] field, or localized
+                     by the client.
+                  schema:
+                    type: string
             responses:
                 "200":
                     description: OK
@@ -119,6 +141,28 @@ paths:
                   schema:
                     type: integer
                     format: enum
+                - name: calendar.last_sync_hash
+                  in: query
+                  schema:
+                    type: string
+                    format: bytes
+                - name: calendar.last_import_error.code
+                  in: query
+                  description: |-
+                    The status code, which should be an enum value of
+                     [google.rpc.Code][google.rpc.Code].
+                  schema:
+                    type: integer
+                    format: int32
+                - name: calendar.last_import_error.message
+                  in: query
+                  description: |-
+                    A developer-facing error message, which should be in English. Any
+                     user-facing error message should be localized and sent in the
+                     [google.rpc.Status.details][google.rpc.Status.details] field, or localized
+                     by the client.
+                  schema:
+                    type: string
                 - name: field_mask
                   in: query
                   schema:
@@ -463,6 +507,11 @@ components:
                 default_reminder_mode:
                     type: integer
                     format: enum
+                last_sync_hash:
+                    type: string
+                    format: bytes
+                last_import_error:
+                    $ref: '#/components/schemas/Status'
         Channel:
             type: object
             properties:
@@ -475,6 +524,8 @@ components:
         DefaultReminder:
             type: object
             properties:
+                id:
+                    type: string
                 before:
                     pattern: ^-?(?:0|[1-9][0-9]{0,11})(?:\.[0-9]{1,9})?s$
                     type: string

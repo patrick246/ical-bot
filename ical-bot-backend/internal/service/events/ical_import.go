@@ -146,7 +146,7 @@ func (i *IcalImport) importCalendar(ctx context.Context, calendar *pb.Calendar) 
 	for _, ev := range icalCalendar.Events() {
 		fmt.Printf("%#v\n", ev.Props.Get("SUMMARY"))
 
-		err = importOperation.CreateEvent(ctx, &ev)
+		err = importOperation.CreateEvent(ctx, calendar, &ev)
 		if err != nil {
 			return err
 		}

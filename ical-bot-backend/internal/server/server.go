@@ -7,14 +7,22 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/reflection"
 
 	"github.com/patrick246/ical-bot/ical-bot-backend/internal/log"
 )
+
+type JobSpec struct {
+	Name     string
+	Job      Job
+	Interval time.Duration
+}
 
 type Job interface {
 	Run(ctx context.Context) error
@@ -25,7 +33,7 @@ type Server struct {
 	GRPCPort int
 	Logger   *slog.Logger
 	Register func(*grpc.Server, *grpc.ClientConn, *runtime.ServeMux) error
-	Jobs     []Job
+	Jobs     []JobSpec
 }
 
 func (s *Server) Run() error {
@@ -66,6 +74,8 @@ func (s *Server) Run() error {
 		return err
 	}
 
+	reflection.Register(server)
+
 	eg := errgroup.Group{}
 
 	eg.Go(func() error {
@@ -92,13 +102,19 @@ func (s *Server) Run() error {
 		return err
 	})
 
-	for _, job := range s.Jobs {
+	for _, jobSpec := range s.Jobs {
 		eg.Go(func() error {
-			err := job.Run(context.Background())
-			if err != nil {
-				s.Logger.Error("job failure", log.Error(err))
+			ticker := time.NewTicker(jobSpec.Interval)
+			defer ticker.Stop()
 
-				return err
+			select {
+			case <-ticker.C:
+				err := jobSpec.Job.Run(context.Background())
+				if err != nil {
+					s.Logger.Error("job failure", log.Error(err), slog.String("job", jobSpec.Name))
+
+					return err
+				}
 			}
 
 			return nil
