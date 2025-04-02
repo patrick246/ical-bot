@@ -10,8 +10,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	pb "github.com/patrick246/ical-bot/ical-bot-backend/internal/pkg/api/pb/ical-bot-backend/v1"
 	"github.com/patrick246/ical-bot/ical-bot-backend/internal/service/calendar"
+	pb "github.com/patrick246/ical-bot/ical-bot-backend/pkg/api/pb/ical-bot-backend/v1"
 )
 
 type ICalBackend struct {

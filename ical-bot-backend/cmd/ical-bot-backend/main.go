@@ -16,11 +16,11 @@ import (
 	"github.com/patrick246/ical-bot/ical-bot-backend/internal/config"
 	"github.com/patrick246/ical-bot/ical-bot-backend/internal/database"
 	"github.com/patrick246/ical-bot/ical-bot-backend/internal/log"
-	pb "github.com/patrick246/ical-bot/ical-bot-backend/internal/pkg/api/pb/ical-bot-backend/v1"
 	"github.com/patrick246/ical-bot/ical-bot-backend/internal/server"
 	"github.com/patrick246/ical-bot/ical-bot-backend/internal/service"
 	"github.com/patrick246/ical-bot/ical-bot-backend/internal/service/calendar"
 	"github.com/patrick246/ical-bot/ical-bot-backend/internal/service/events"
+	pb "github.com/patrick246/ical-bot/ical-bot-backend/pkg/api/pb/ical-bot-backend/v1"
 )
 
 func main() {
