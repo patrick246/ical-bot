@@ -57,7 +57,7 @@ func main() {
 		println("could not fetch channel list!")
 		os.Exit(1)
 	}
-	channels := channelListResponse.Channels
+	channel_list := channelListResponse.Channels
 
 	stream, err := telegramClientBot.StreamEventNotifications(context.Background())
 	if err != nil {
@@ -65,8 +65,6 @@ func main() {
 		defer clientConnection.Close()
 		os.Exit(1)
 	}
-
-	wait := make(chan *icalbot.EventNotification)
 	// grpc message waiter
 	go func() {
 		for {
@@ -78,36 +76,22 @@ func main() {
 			ack := &icalbot.EventNotificationAcknowledge{}
 			ack.Id = notification.Id
 
-			wait <- notification
-			stream.Send(ack)
-		}
-	}()
-
-	// telegram bot sender
-	go func() {
-		for {
-			message := <-wait
-			if message == nil {
-				println("%s message is nil", error_message)
-			}
-
-			counter := 0
-
-			for idx := channels[counter]; idx != nil; counter++ {
-				// todo check channeltype
-				telegramChannel := idx.GetTelegram()
+			for _, channel := range channel_list {
+				telegramChannel := channel.GetTelegram()
 				if telegramChannel == nil {
 					continue
 				}
-				b.SendMessage(ctx,
+				_, err = b.SendMessage(ctx,
 					&bot.SendMessageParams{
 						ChatID:    telegramChannel.Id,
-						Text:      message.String(),
+						Text:      notification.Id,
 						ParseMode: models.ParseModeMarkdown,
 					})
+				if err != nil {
+					stream.Send(ack)
+				}
 			}
 
-			println("%s received notification with id: %s", info_message, message.Id)
 		}
 	}()
 
