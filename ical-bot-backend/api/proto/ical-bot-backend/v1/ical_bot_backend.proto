@@ -252,6 +252,17 @@ message PageToken {
 
 message EventNotification {
   string id = 1;
+  Event event = 2;
+  repeated Channel channels = 3;
+}
+
+message Event {
+  string id = 1;
+  string summary = 2;
+  string description = 3;
+  repeated string categories = 4;
+  google.protobuf.Timestamp start_time = 5 [json_name="start_time"];
+  google.protobuf.Duration duration = 6;
 }
 
 message EventNotificationAcknowledge {
