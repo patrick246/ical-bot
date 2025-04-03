@@ -5,13 +5,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/emersion/go-ical"
 	"github.com/google/uuid"
 
-	pb "github.com/patrick246/ical-bot/ical-bot-backend/internal/pkg/api/pb/ical-bot-backend/v1"
+	pb "github.com/patrick246/ical-bot/ical-bot-backend/pkg/api/pb/ical-bot-backend/v1"
 )
 
 type timerange struct {
@@ -21,18 +20,6 @@ type timerange struct {
 
 func (t timerange) PostgresString() string {
 	return fmt.Sprintf("['%s','%s')", t.from.Format(time.RFC3339Nano), t.to.Format(time.RFC3339Nano))
-}
-
-type timemultirange []timerange
-
-func (t timemultirange) PostgresString() string {
-	ranges := make([]string, 0, len(t))
-
-	for _, r := range t {
-		ranges = append(ranges, r.PostgresString())
-	}
-
-	return "{" + strings.Join(ranges, ", ") + "}"
 }
 
 type EventAlarm struct {
