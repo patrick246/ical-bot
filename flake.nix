@@ -19,6 +19,8 @@
             with pkgs; [
               bash
               gnumake
+              buildPackages.stdenv.cc
+              olm
               go
               podman
               podman-compose
