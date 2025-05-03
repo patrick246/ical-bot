@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -139,6 +140,16 @@ func (b *ICalBackend) DeleteCalendarChannel(
 ) (*emptypb.Empty, error) {
 	// TODO implement me
 	return nil, status.Error(codes.Unimplemented, "not implemented")
+}
+
+func (b *ICalBackend) StreamEventNotifications(
+	stream pb.IcalBotService_StreamEventNotificationsServer,
+) error {
+	// TODO implement me
+	for {
+		stream.Send(&pb.EventNotification{Id: "This message is a stub for a test :3"})
+		time.Sleep(10 * time.Second)
+	}
 }
 
 func decodePageToken(pageToken string) (*pb.PageToken, error) {
