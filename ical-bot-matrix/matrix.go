@@ -30,14 +30,14 @@ type matrixConfig struct {
 
 var cfg matrixConfig
 
-func sendMessage(client *mautrix.Client, ctx context.Context, roomID id.RoomID, message string) error {
+func sendMessage(ctx context.Context, client *mautrix.Client, roomID id.RoomID, message string) error {
 	resMes, err := client.SendText(ctx, roomID, message)
 	if err != nil {
-		slog.Warn("could not send Matrix message", "error", err, "room", roomID, "message", message)
+		slog.WarnContext(ctx, "could not send Matrix message", slog.Any("error", err), slog.String("room_id", roomID.String()), slog.String("message", message))
 		return err
 	}
 
-	slog.Debug("successfully sent Matrix message", "result", resMes, "roomID", roomID, "message", message)
+	slog.DebugContext(ctx, "successfully sent Matrix message", slog.Any("result", resMes), slog.String("room_id", roomID.String()), slog.String("message", message))
 	return nil
 }
 
@@ -49,23 +49,23 @@ func fetchIcal() {}
 
 func main() {
 	if err := env.Parse(&cfg); err != nil {
-		slog.Error("could not parse necessary environment variables for config", "error", err)
+		slog.Error("could not parse necessary environment variables for config", slog.Any("error", err))
 		os.Exit(1)
 	}
 
 	var programLevel = new(slog.LevelVar)
 	if err := programLevel.UnmarshalText(([]byte)(cfg.LogLevel)); err != nil {
-		slog.Error("could not set log level", "error", err)
+		slog.Error("could not set log level", slog.Any("error", err))
 		os.Exit(1)
 	}
 
 	var logger *slog.Logger
 	logger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: programLevel}))
-	logger.Info("starting program with log level", "level", programLevel)
+	logger.Info("starting program with log level", slog.Any("level", programLevel))
 
 	client, err := mautrix.NewClient(cfg.HomeserverUrl, "", "")
 	if err != nil {
-		logger.Error("could not reach homeserver", "error", err)
+		logger.Error("could not reach homeserver", slog.Any("error", err))
 		os.Exit(1)
 	}
 	// I'm not sure if this is the correct way to set the store. The docs are a bit ambiguous
@@ -82,15 +82,15 @@ func main() {
 		StoreHomeserverURL: true,
 	})
 	if err != nil {
-		logger.Error("could not login to homeserver", "error", err)
+		logger.Error("could not login to homeserver", slog.Any("error", err))
 		os.Exit(1)
 	}
-	logger.Debug("successfully logged into homeserver", "result", resLogin)
+	logger.Debug("successfully logged into homeserver", slog.Any("result", resLogin))
 
 	syncer := client.Syncer.(*mautrix.DefaultSyncer)
 	syncer.OnEventType(event.EventMessage, func(ctx context.Context, evt *event.Event) {
 		if isEncrypted, err := client.StateStore.IsEncrypted(ctx, evt.RoomID); !isEncrypted || err != nil {
-			logger.Info("room not encrypted yet.", "error", err, "roomID", evt.RoomID)
+			logger.InfoContext(ctx, "room not encrypted yet", slog.Any("error", err), slog.String("room_id", evt.RoomID.String()))
 			// if err = client.StateStore.SetEncryptionEvent(ctx, evt.RoomID, &event.EncryptionEventContent{
 			// 	// Must be according to docs(https://github.com/mautrix/go/blob/826089e020fb838951df813138d89ab47b07b6b1/event/encryption.go#L19)
 			// 	Algorithm:              id.AlgorithmMegolmV1,
@@ -104,13 +104,13 @@ func main() {
 			// }
 		}
 
-		logger.Debug("received a new message", "sender", evt.Sender.String(), "body", evt.Content.AsMessage().Body)
+		logger.DebugContext(ctx, "received a new message", slog.String("sender", evt.Sender.String()), slog.String("body", evt.Content.AsMessage().Body))
 		if evt.Sender != client.UserID {
 			resSend, err := client.SendText(ctx, evt.RoomID, "Yes, I heard you. Your message was "+evt.Content.AsMessage().Body)
 			if err != nil {
-				logger.Warn("could not send message", "error", err)
+				logger.WarnContext(ctx, "could not send message", slog.Any("error", err))
 			}
-			logger.Debug("sent message", "result", resSend)
+			logger.DebugContext(ctx, "sent message", slog.Any("result", resSend))
 		}
 	})
 	syncer.OnEventType(event.StateMember, func(ctx context.Context, evt *event.Event) {
@@ -122,13 +122,13 @@ func main() {
 			case event.MembershipInvite:
 				resJoin, err := client.JoinRoom(ctx, evt.RoomID.String(), nil)
 				if err != nil {
-					logger.Error("failed when attempting to join invited room", "roomID", evt.RoomID, "event", evt)
+					logger.Error("failed when attempting to join invited room", slog.Any("error", err), slog.String("room_id", evt.RoomID.String()), slog.Any("event", evt))
 				}
 
-				logger.Info("successfully joined invited room", "result", resJoin)
-				sendMessage(client, ctx, evt.RoomID, "Hello, I'm the Ical Test Bot! It's nice to meet you :3")
+				logger.InfoContext(ctx, "successfully joined invited room", slog.Any("result", resJoin))
+				sendMessage(ctx, client, evt.RoomID, "Hello, I'm the Ical Test Bot! It's nice to meet you :3")
 			default:
-				logger.Warn("received unimplemented membership change event", "type", membership, "event", evt)
+				logger.WarnContext(ctx, "received unimplemented membership change event", slog.Any("type", membership), slog.Any("event", evt))
 			}
 		}
 	})
@@ -137,12 +137,12 @@ func main() {
 	// TODO: The docs are not entirely clear if the pickleKey is a secret or just a key
 	cryptoHelper, err := cryptohelper.NewCryptoHelper(client, []byte("awawawaaawa"), cryptoStore)
 	if err != nil {
-		logger.Error("failed to setup cryptoHelper", "error", err)
+		logger.Error("failed to setup cryptoHelper", slog.Any("error", err))
 		os.Exit(1)
 	}
 	// TODO: Maybe setup cryptoHelper.Machine().log via loggerzerolog
 	if err := cryptoHelper.Init(context.TODO()); err != nil {
-		logger.Error("could not initialize cryptoHelper", "error", err)
+		logger.Error("could not initialize cryptoHelper", slog.Any("error", err))
 		os.Exit(1)
 	}
 	// De- and Encryption
@@ -158,9 +158,9 @@ func main() {
 		// What does this do internally?
 		if err := client.SyncWithContext(matrixSyncCtx); err != nil {
 			if errors.Is(err, context.Canceled) {
-				logger.Error("received cancel event, shutting down...")
+				logger.ErrorContext(matrixSyncCtx, "received cancel event, shutting down...", slog.Any("error", err))
 			} else {
-				logger.Error("received unknown sync error", "error_type", err)
+				logger.ErrorContext(matrixSyncCtx, "received unknown sync error", slog.Any("error_type", err))
 			}
 		}
 	}()
@@ -181,15 +181,15 @@ func main() {
 		signal.Notify(osSignals, syscall.SIGQUIT)
 
 		sig := <-osSignals
-		logger.Info("received os signal for termination, initiating shutdown procedure", "signal", sig)
+		logger.Info("received os signal for termination, initiating shutdown procedure", slog.Any("signal", sig))
 	}()
 
 	syncWait.Wait()
-	logger.Info("starting shutdown procedure.")
+	logger.Info("starting shutdown procedure")
 	// Implicitly terminates the event loop
 	closeMatrixSyncContext()
 	if err := cryptoHelper.Close(); err != nil {
-		logger.Error("error while shuting down cryptoHelper", "error", err)
+		logger.Error("error while shuting down cryptoHelper", slog.Any("error", err))
 	}
 	logger.Info("finished shutdown, terminating program")
 }
