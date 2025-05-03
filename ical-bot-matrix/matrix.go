@@ -26,15 +26,13 @@ type matrixConfig struct {
 	LogLevel      string `env:"MATRIX_LOG_LEVEL" envDefault:"INFO"`
 }
 
-func sendMessage(ctx context.Context, client *mautrix.Client, roomID id.RoomID, message string) error {
-	resMes, err := client.SendText(ctx, roomID, message)
+func logMatrixSendError(ctx context.Context, evt event.Event, msg string, result string, err error) {
 	if err != nil {
-		slog.WarnContext(ctx, "could not send Matrix message", slog.Any("error", err), slog.String("room_id", roomID.String()), slog.String("message", message))
-		return err
-	}
+		slog.WarnContext(ctx, "could not send Matrix message", slog.Any("error", err), slog.String("room_id", evt.RoomID.String()), slog.String("message", msg), slog.Any("event", evt))
+	} else {
 
-	slog.DebugContext(ctx, "successfully sent Matrix message", slog.Any("result", resMes), slog.String("room_id", roomID.String()), slog.String("message", message))
-	return nil
+		slog.DebugContext(ctx, "successfully sent Matrix message", slog.Any("result", result), slog.String("room_id", evt.RoomID.String()), slog.String("message", msg), slog.Any("event", evt))
+	}
 }
 
 // TODO: Implement me
@@ -108,7 +106,8 @@ func main() {
 				}
 
 				logger.InfoContext(ctx, "successfully joined invited room", slog.Any("result", resJoin))
-				sendMessage(ctx, client, evt.RoomID, "Hello, I'm the Ical Test Bot! It's nice to meet you :3")
+				resMes, err := client.SendText(ctx, evt.RoomID, "Hello, I'm the Ical Test Bot! It's nice to meet you :3")
+				logMatrixSendError(ctx, resMes, err, evt.RoomID)
 			default:
 				logger.WarnContext(ctx, "received unimplemented membership change event", slog.Any("type", membership), slog.Any("event", evt))
 			}
