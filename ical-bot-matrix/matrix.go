@@ -10,8 +10,6 @@ import (
 	"syscall"
 
 	"github.com/caarlos0/env/v11"
-	//"github.com/rs/zerolog"
-	//slogzerolog "github.com/samber/slog-zerolog/v2"
 	"maunium.net/go/mautrix"
 	"maunium.net/go/mautrix/crypto"
 	"maunium.net/go/mautrix/crypto/cryptohelper"
@@ -88,21 +86,6 @@ func main() {
 
 	syncer := client.Syncer.(*mautrix.DefaultSyncer)
 	syncer.OnEventType(event.EventMessage, func(ctx context.Context, evt *event.Event) {
-		if isEncrypted, err := client.StateStore.IsEncrypted(ctx, evt.RoomID); !isEncrypted || err != nil {
-			logger.InfoContext(ctx, "room not encrypted yet", slog.Any("error", err), slog.String("room_id", evt.RoomID.String()))
-			// if err = client.StateStore.SetEncryptionEvent(ctx, evt.RoomID, &event.EncryptionEventContent{
-			// 	// Must be according to docs(https://github.com/mautrix/go/blob/826089e020fb838951df813138d89ab47b07b6b1/event/encryption.go#L19)
-			// 	Algorithm:              id.AlgorithmMegolmV1,
-			//   // Recommended defaults
-			// 	RotationPeriodMillis:   7 * 24 * 60 * 60 *1000,
-			// 	RotationPeriodMessages: 100,
-			// }); err != nil {
-			//   logger.Warn("could not upgrade room to encrypted", "roomID", evt.RoomID, "error", err)
-			// } else {
-			//   logger.Info("successfully upgraded room to encrypted", "roomID", evt.RoomID)
-			// }
-		}
-
 		logger.DebugContext(ctx, "received a new message", slog.String("sender", evt.Sender.String()), slog.String("body", evt.Content.AsMessage().Body))
 		if evt.Sender != client.UserID {
 			resSend, err := client.SendText(ctx, evt.RoomID, "Yes, I heard you. Your message was "+evt.Content.AsMessage().Body)
@@ -139,7 +122,6 @@ func main() {
 		logger.Error("failed to setup cryptoHelper", slog.Any("error", err))
 		os.Exit(1)
 	}
-	// TODO: Maybe setup cryptoHelper.Machine().log via loggerzerolog
 	if err := cryptoHelper.Init(context.Background()); err != nil {
 		logger.Error("could not initialize cryptoHelper", slog.Any("error", err))
 		os.Exit(1)
