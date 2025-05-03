@@ -28,8 +28,6 @@ type matrixConfig struct {
 	LogLevel      string `env:"MATRIX_LOG_LEVEL" envDefault:"INFO"`
 }
 
-var cfg matrixConfig
-
 func sendMessage(ctx context.Context, client *mautrix.Client, roomID id.RoomID, message string) error {
 	resMes, err := client.SendText(ctx, roomID, message)
 	if err != nil {
@@ -48,6 +46,7 @@ func loginIcal() {}
 func fetchIcal() {}
 
 func main() {
+	var cfg matrixConfig
 	if err := env.Parse(&cfg); err != nil {
 		slog.Error("could not parse necessary environment variables for config", slog.Any("error", err))
 		os.Exit(1)
@@ -70,7 +69,7 @@ func main() {
 	}
 	// I'm not sure if this is the correct way to set the store. The docs are a bit ambiguous
 	client.StateStore = mautrix.NewMemoryStateStore()
-	resLogin, err := client.Login(context.TODO(), &mautrix.ReqLogin{
+	resLogin, err := client.Login(context.Background(), &mautrix.ReqLogin{
 		Type:     mautrix.AuthTypePassword,
 		Password: cfg.Password,
 		Identifier: mautrix.UserIdentifier{
@@ -141,7 +140,7 @@ func main() {
 		os.Exit(1)
 	}
 	// TODO: Maybe setup cryptoHelper.Machine().log via loggerzerolog
-	if err := cryptoHelper.Init(context.TODO()); err != nil {
+	if err := cryptoHelper.Init(context.Background()); err != nil {
 		logger.Error("could not initialize cryptoHelper", slog.Any("error", err))
 		os.Exit(1)
 	}
@@ -152,42 +151,52 @@ func main() {
 	loginIcal()
 
 	var syncWait sync.WaitGroup
-	matrixSyncCtx, closeMatrixSyncContext := context.WithCancel(context.Background())
 
+	matrixSyncCtx, closeMatrixSyncContext := context.WithCancel(context.Background())
+	syncWait.Add(1)
 	go func() {
-		// What does this do internally?
-		if err := client.SyncWithContext(matrixSyncCtx); err != nil {
-			if errors.Is(err, context.Canceled) {
-				logger.ErrorContext(matrixSyncCtx, "received cancel event, shutting down...", slog.Any("error", err))
-			} else {
-				logger.ErrorContext(matrixSyncCtx, "received unknown sync error", slog.Any("error_type", err))
+		terminated := false
+		defer syncWait.Done()
+
+		for !terminated {
+			if err := client.SyncWithContext(matrixSyncCtx); err != nil {
+				if errors.Is(err, context.Canceled) {
+					logger.InfoContext(matrixSyncCtx, "received cancel event, shutting down matrix backend", slog.Any("error", err))
+					terminated = true
+				} else {
+					logger.ErrorContext(matrixSyncCtx, "received unknown sync error", slog.Any("error_type", err))
+				}
 			}
 		}
 	}()
 
+	icalSyncCtx, closeIcalSyncContext := context.WithCancel(context.Background())
 	syncWait.Add(1)
 	go func() {
+		terminated := false
 		defer syncWait.Done()
-		logger.Debug("hiiii, I'm the Ical backend and I'm non-existent for meow")
-		fetchIcal()
+
+		logger.DebugContext(icalSyncCtx, "hiiii, I'm the ical backend and I'm non-existent for meow")
+
+		for !terminated {
+			select {
+			case <-icalSyncCtx.Done():
+				logger.InfoContext(icalSyncCtx, "shutting down ical backend")
+				terminated = true
+			}
+
+			fetchIcal()
+		}
 	}()
 
-	syncWait.Add(1)
-	go func() {
-		defer syncWait.Done()
-		osSignals := make(chan os.Signal, 1)
-		signal.Notify(osSignals, syscall.SIGTERM)
-		signal.Notify(osSignals, syscall.SIGINT)
-		signal.Notify(osSignals, syscall.SIGQUIT)
-
-		sig := <-osSignals
-		logger.Info("received os signal for termination, initiating shutdown procedure", slog.Any("signal", sig))
-	}()
-
-	syncWait.Wait()
-	logger.Info("starting shutdown procedure")
-	// Implicitly terminates the event loop
+	osSignals := make(chan os.Signal, 1)
+	signal.Notify(osSignals, syscall.SIGTERM, syscall.SIGINT, syscall.SIGQUIT)
+	sig := <-osSignals
+	logger.Info("received os signal for termination, initiating shutdown procedure", slog.Any("signal", sig))
 	closeMatrixSyncContext()
+	closeIcalSyncContext()
+	syncWait.Wait()
+
 	if err := cryptoHelper.Close(); err != nil {
 		logger.Error("error while shuting down cryptoHelper", slog.Any("error", err))
 	}
