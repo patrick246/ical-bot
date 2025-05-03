@@ -60,12 +60,12 @@ func main() {
 	}
 
 	var logger *slog.Logger
-	logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: programLevel}))
-	slog.Info("starting program with log level", "level", programLevel)
+	logger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: programLevel}))
+	logger.Info("starting program with log level", "level", programLevel)
 
 	client, err := mautrix.NewClient(cfg.HomeserverUrl, "", "")
 	if err != nil {
-		slog.Error("could not reach homeserver", "error", err)
+		logger.Error("could not reach homeserver", "error", err)
 		os.Exit(1)
 	}
 	// I'm not sure if this is the correct way to set the store. The docs are a bit ambiguous
@@ -82,15 +82,15 @@ func main() {
 		StoreHomeserverURL: true,
 	})
 	if err != nil {
-		slog.Error("could not login to homeserver", "error", err)
+		logger.Error("could not login to homeserver", "error", err)
 		os.Exit(1)
 	}
-	slog.Debug("successfully logged into homeserver", "result", resLogin)
+	logger.Debug("successfully logged into homeserver", "result", resLogin)
 
 	syncer := client.Syncer.(*mautrix.DefaultSyncer)
 	syncer.OnEventType(event.EventMessage, func(ctx context.Context, evt *event.Event) {
 		if isEncrypted, err := client.StateStore.IsEncrypted(ctx, evt.RoomID); !isEncrypted || err != nil {
-			slog.Info("room not encrypted yet.", "error", err, "roomID", evt.RoomID)
+			logger.Info("room not encrypted yet.", "error", err, "roomID", evt.RoomID)
 			// if err = client.StateStore.SetEncryptionEvent(ctx, evt.RoomID, &event.EncryptionEventContent{
 			// 	// Must be according to docs(https://github.com/mautrix/go/blob/826089e020fb838951df813138d89ab47b07b6b1/event/encryption.go#L19)
 			// 	Algorithm:              id.AlgorithmMegolmV1,
@@ -98,19 +98,19 @@ func main() {
 			// 	RotationPeriodMillis:   7 * 24 * 60 * 60 *1000,
 			// 	RotationPeriodMessages: 100,
 			// }); err != nil {
-			//   slog.Warn("could not upgrade room to encrypted", "roomID", evt.RoomID, "error", err)
+			//   logger.Warn("could not upgrade room to encrypted", "roomID", evt.RoomID, "error", err)
 			// } else {
-			//   slog.Info("successfully upgraded room to encrypted", "roomID", evt.RoomID)
+			//   logger.Info("successfully upgraded room to encrypted", "roomID", evt.RoomID)
 			// }
 		}
 
-		slog.Debug("received a new message", "sender", evt.Sender.String(), "body", evt.Content.AsMessage().Body)
+		logger.Debug("received a new message", "sender", evt.Sender.String(), "body", evt.Content.AsMessage().Body)
 		if evt.Sender != client.UserID {
 			resSend, err := client.SendText(ctx, evt.RoomID, "Yes, I heard you. Your message was "+evt.Content.AsMessage().Body)
 			if err != nil {
-				slog.Warn("could not send message", "error", err)
+				logger.Warn("could not send message", "error", err)
 			}
-			slog.Debug("sent message", "result", resSend)
+			logger.Debug("sent message", "result", resSend)
 		}
 	})
 	syncer.OnEventType(event.StateMember, func(ctx context.Context, evt *event.Event) {
@@ -122,13 +122,13 @@ func main() {
 			case event.MembershipInvite:
 				resJoin, err := client.JoinRoom(ctx, evt.RoomID.String(), nil)
 				if err != nil {
-					slog.Error("failed when attempting to join invited room", "roomID", evt.RoomID, "event", evt)
+					logger.Error("failed when attempting to join invited room", "roomID", evt.RoomID, "event", evt)
 				}
 
-				slog.Info("successfully joined invited room", "result", resJoin)
+				logger.Info("successfully joined invited room", "result", resJoin)
 				sendMessage(client, ctx, evt.RoomID, "Hello, I'm the Ical Test Bot! It's nice to meet you :3")
 			default:
-				slog.Warn("received unimplemented membership change event", "type", membership, "event", evt)
+				logger.Warn("received unimplemented membership change event", "type", membership, "event", evt)
 			}
 		}
 	})
@@ -137,17 +137,17 @@ func main() {
 	// TODO: The docs are not entirely clear if the pickleKey is a secret or just a key
 	cryptoHelper, err := cryptohelper.NewCryptoHelper(client, []byte("awawawaaawa"), cryptoStore)
 	if err != nil {
-		slog.Error("failed to setup cryptoHelper", "error", err)
+		logger.Error("failed to setup cryptoHelper", "error", err)
 		os.Exit(1)
 	}
-	// TODO: Maybe setup cryptoHelper.Machine().log via slogzerolog
+	// TODO: Maybe setup cryptoHelper.Machine().log via loggerzerolog
 	if err := cryptoHelper.Init(context.TODO()); err != nil {
-		slog.Error("could not initialize cryptoHelper", "error", err)
+		logger.Error("could not initialize cryptoHelper", "error", err)
 		os.Exit(1)
 	}
 	// De- and Encryption
 	client.Crypto = cryptoHelper
-	slog.Debug("successfully initialized cryptoHelper")
+	logger.Debug("successfully initialized cryptoHelper")
 
 	loginIcal()
 
@@ -158,9 +158,9 @@ func main() {
 		// What does this do internally?
 		if err := client.SyncWithContext(matrixSyncCtx); err != nil {
 			if errors.Is(err, context.Canceled) {
-				slog.Error("received cancel event, shutting down...")
+				logger.Error("received cancel event, shutting down...")
 			} else {
-				slog.Error("received unknown sync error", "error_type", err)
+				logger.Error("received unknown sync error", "error_type", err)
 			}
 		}
 	}()
@@ -168,7 +168,7 @@ func main() {
 	syncWait.Add(1)
 	go func() {
 		defer syncWait.Done()
-		slog.Debug("hiiii, I'm the Ical backend and I'm non-existent for meow")
+		logger.Debug("hiiii, I'm the Ical backend and I'm non-existent for meow")
 		fetchIcal()
 	}()
 
@@ -181,15 +181,15 @@ func main() {
 		signal.Notify(osSignals, syscall.SIGQUIT)
 
 		sig := <-osSignals
-		slog.Info("received os signal for termination, initiating shutdown procedure", "signal", sig)
+		logger.Info("received os signal for termination, initiating shutdown procedure", "signal", sig)
 	}()
 
 	syncWait.Wait()
-	slog.Info("starting shutdown procedure.")
+	logger.Info("starting shutdown procedure.")
 	// Implicitly terminates the event loop
 	closeMatrixSyncContext()
 	if err := cryptoHelper.Close(); err != nil {
-		slog.Error("error while shuting down cryptoHelper", "error", err)
+		logger.Error("error while shuting down cryptoHelper", "error", err)
 	}
-	slog.Info("finished shutdown, terminating program")
+	logger.Info("finished shutdown, terminating program")
 }
