@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"strings"
 	"sync"
 	"syscall"
 
@@ -29,24 +28,7 @@ type matrixConfig struct {
 	LogLevel      string `env:"MATRIX_LOG_LEVEL" envDefault:"INFO"`
 }
 
-var logger *slog.Logger
 var cfg matrixConfig
-var programLevel = new(slog.LevelVar)
-
-func logLevelFromString(toParse string) (slog.Level, error) {
-	switch strings.ToUpper(toParse) {
-	case "DEBUG":
-		return slog.LevelDebug, nil
-	case "INFO":
-		return slog.LevelInfo, nil
-	case "WARN":
-		return slog.LevelWarn, nil
-	case "ERROR":
-		return slog.LevelError, nil
-	default:
-		return slog.Level(-999), errors.New("Invalid log level provided")
-	}
-}
 
 func sendMessage(client *mautrix.Client, ctx context.Context, roomID id.RoomID, message string) error {
 	resMes, err := client.SendText(ctx, roomID, message)
@@ -63,7 +45,6 @@ func sendMessage(client *mautrix.Client, ctx context.Context, roomID id.RoomID, 
 func loginIcal() {}
 
 // TODO: Implement me
-
 func fetchIcal() {}
 
 func main() {
@@ -72,14 +53,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	programLevel, err := logLevelFromString(cfg.LogLevel)
-	if err != nil {
+	var programLevel = new(slog.LevelVar)
+	if err := programLevel.UnmarshalText(([]byte)(cfg.LogLevel)); err != nil {
 		slog.Error("Could not set log level", "error", err)
 		os.Exit(1)
 	}
 
+	var logger *slog.Logger
 	logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: programLevel}))
-	slog.SetDefault(logger)
 	slog.Info("Starting program with log level", "level", programLevel)
 
 	client, err := mautrix.NewClient(cfg.HomeserverUrl, "", "")
@@ -110,17 +91,17 @@ func main() {
 	syncer.OnEventType(event.EventMessage, func(ctx context.Context, evt *event.Event) {
 		if isEncrypted, err := client.StateStore.IsEncrypted(ctx, evt.RoomID); !isEncrypted || err != nil {
 			slog.Info("Room not encrypted yet.", "error", err, "roomID", evt.RoomID)
-      // if err = client.StateStore.SetEncryptionEvent(ctx, evt.RoomID, &event.EncryptionEventContent{
-      // 	// Must be according to docs(https://github.com/mautrix/go/blob/826089e020fb838951df813138d89ab47b07b6b1/event/encryption.go#L19)
-      // 	Algorithm:              id.AlgorithmMegolmV1,
-      //   // Recommended defaults
-      // 	RotationPeriodMillis:   7 * 24 * 60 * 60 *1000,
-      // 	RotationPeriodMessages: 100,
-      // }); err != nil {
-      //   slog.Warn("Could not upgrade room to encrypted", "roomID", evt.RoomID, "error", err)
-      // } else {
-      //   slog.Info("Successfully upgraded room to encrypted", "roomID", evt.RoomID)
-      // }
+			// if err = client.StateStore.SetEncryptionEvent(ctx, evt.RoomID, &event.EncryptionEventContent{
+			// 	// Must be according to docs(https://github.com/mautrix/go/blob/826089e020fb838951df813138d89ab47b07b6b1/event/encryption.go#L19)
+			// 	Algorithm:              id.AlgorithmMegolmV1,
+			//   // Recommended defaults
+			// 	RotationPeriodMillis:   7 * 24 * 60 * 60 *1000,
+			// 	RotationPeriodMessages: 100,
+			// }); err != nil {
+			//   slog.Warn("Could not upgrade room to encrypted", "roomID", evt.RoomID, "error", err)
+			// } else {
+			//   slog.Info("Successfully upgraded room to encrypted", "roomID", evt.RoomID)
+			// }
 		}
 
 		slog.Debug("Received a new message", "sender", evt.Sender.String(), "body", evt.Content.AsMessage().Body)
@@ -138,7 +119,7 @@ func main() {
 			membership := evt.Content.AsMember().Membership
 
 			switch membership {
-      case event.MembershipInvite:
+			case event.MembershipInvite:
 				resJoin, err := client.JoinRoom(ctx, evt.RoomID.String(), nil)
 				if err != nil {
 					slog.Error("Failed when attempting to join invited room", "roomID", evt.RoomID, "event", evt)
@@ -152,7 +133,7 @@ func main() {
 		}
 	})
 
-  cryptoStore := crypto.NewMemoryStore(nil)
+	cryptoStore := crypto.NewMemoryStore(nil)
 	// TODO: The docs are not entirely clear if the pickleKey is a secret or just a key
 	cryptoHelper, err := cryptohelper.NewCryptoHelper(client, []byte("awawawaaawa"), cryptoStore)
 	if err != nil {
